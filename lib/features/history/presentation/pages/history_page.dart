@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/routing/app_routes.dart';
+import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../core/design_system/widgets/app_card.dart';
 import '../../../../core/design_system/widgets/app_empty_state.dart';
@@ -72,10 +73,15 @@ class _HistoryPageState extends State<HistoryPage> {
             padding: const EdgeInsets.all(AppSpacing.md),
             itemCount:
                 state.sessions.length +
+                1 +
                 (state.hasMoreSessions || state.isLoadingMoreSessions ? 1 : 0),
             separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
             itemBuilder: (context, index) {
-              if (index == state.sessions.length) {
+              if (index == 0) {
+                return const _HistoryIntro();
+              }
+              final sessionIndex = index - 1;
+              if (sessionIndex == state.sessions.length) {
                 return Center(
                   child: state.isLoadingMoreSessions
                       ? const Padding(
@@ -91,7 +97,7 @@ class _HistoryPageState extends State<HistoryPage> {
                         ),
                 );
               }
-              final session = state.sessions[index];
+              final session = state.sessions[sessionIndex];
               return _SessionCard(
                 session: session,
                 onTap: () =>
@@ -101,6 +107,50 @@ class _HistoryPageState extends State<HistoryPage> {
           ),
         );
       },
+    ),
+  );
+}
+
+class _HistoryIntro extends StatelessWidget {
+  const _HistoryIntro();
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+    child: AppCard(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Row(
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: AppColors.accent.withValues(alpha: 0.62),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const SizedBox(
+              width: 46,
+              height: 46,
+              child: Icon(Icons.route_outlined, color: AppColors.forest),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Your trail archive',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  'Routes are stored on this device and ready to review.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     ),
   );
 }

@@ -1,47 +1,184 @@
 # TrailSync
 
-TrailSync is an offline-first GPS tracking and synchronization project. The current implementation includes local SQLite session and location persistence, foreground GPS capture, and a batched Supabase synchronization queue. Authentication screens and sign-in flows are not implemented yet.
+**Record the route. Keep it safe offline. Sync it when you’re back online.**
 
-## Project structure
+TrailSync is an offline-first GPS tracking app for walks, hikes, rides, and field work. It captures a route on the device, stores each accepted location in SQLite, and keeps the saved route available even when mobile data is unreliable. When a configured backend is reachable, the sync engine sends records in batches and only marks them synced after the server acknowledges them.
 
-```text
-lib/
-  app/       App bootstrap, configuration, dependency injection, routing, theme and Drift database
-  core/      Shared errors, logging and design-system widgets
-  features/  authentication, dashboard, tracking, synchronization, history, map, settings
-```
+> **Product promise:** a lost connection should not mean a lost route.
 
-Each feature has `presentation`, `domain` and `data` directories. Tracking uses `TrackingBloc` for UI state, domain repository and location-provider interfaces, and Drift/Geolocator adapters in data. Location history is read with bounded keyset pagination. See [feature boundaries](lib/features/README.md) and the [approved architecture plan](docs/architecture-plan.md).
+## The idea
 
-## Local configuration
+Many location apps depend on a live connection for their core workflow. That can fail on trails, rural roads, large work sites, or during a network outage. TrailSync separates **capturing a location** from **uploading a location**:
 
-Copy `.env.example` to `.env` before running the app. Add only public client configuration:
+1. The user starts a tracking session.
+2. GPS samples are checked and accepted by the recorder.
+3. Each accepted point is written to the device database first.
+4. The route can be reviewed locally in history and on the map.
+5. Synchronization uploads pending records when the network and backend are available.
+6. SQLite updates a record to synced only after an accepted or duplicate acknowledgement.
 
-```dotenv
-APP_ENV=development
+The device database is the source of truth for unsynchronized work. Uploads use stable UUIDs, so retrying a record does not create a second copy.
+
+## Who it helps
+
+- **Outdoor users:** record a walk or hike where coverage is intermittent.
+- **Field teams:** preserve a location trail during site visits or inspections.
+- **Portfolio reviewers:** see a practical example of GPS capture, offline storage, and reliable synchronization working together.
+
+## App walkthrough
+
+| Screen | What it is for |
+| --- | --- |
+| **Dashboard** | Start or stop a route and see session, distance, sync queue, and connectivity summaries. |
+| **Tracking** | Follow the live recording state, distance, saved GPS point count, and latest location fix. |
+| **Map** | View the current location and a selected route with a polyline and start/end markers. |
+| **History** | Browse saved sessions with pagination; open a session for its route, duration, distance, records, and sync state. |
+| **Synchronization** | Review pending, acknowledged, and failed counts; request a sync and see its latest result. |
+
+### A typical trip
+
+1. Open TrailSync and grant location permission when prompted.
+2. Tap **Start tracking** before setting out.
+3. Keep the app open while recording. GPS capture is currently a foreground feature.
+4. Tap **Stop** when the trip is over. The accepted points and session remain in local SQLite.
+5. Open **History** to review the session or choose **View route on map**.
+6. If the device was offline, restore a connection and open **Synchronization**. TrailSync retries pending records; it retains records that have not been acknowledged.
+
+### Offline behavior
+
+- GPS capture and local history do not depend on the map tile server or Supabase being reachable.
+- The route polyline is built from locally saved points.
+- The map background uses OpenStreetMap raster tiles and needs Internet access for new visible tiles. TrailSync does not prefetch map tiles for offline use.
+- A failed upload leaves a record pending or eligible for retry. It is not removed from local storage.
+
+## How the data moves
+
+~~~mermaid
+flowchart LR
+    GPS[GPS location] --> FILTER[Validate and filter sample]
+    FILTER --> SQLITE[(SQLite on device)]
+    SQLITE --> UI[Dashboard · History · Route map]
+    SQLITE --> QUEUE[Pending sync queue]
+    QUEUE -->|Network and backend available| BATCH[Upload stable UUIDs in batches]
+    BATCH --> API[Supabase acknowledgement]
+    API -->|Accepted or duplicate| SQLITE
+    API -->|Timeout, offline, or failure| RETRY[Keep local and retry later]
+    RETRY --> QUEUE
+~~~
+
+## What is implemented today
+
+| Capability | Current state |
+| --- | --- |
+| Foreground GPS recording and start/stop controls | Implemented |
+| Location permission and GPS-disabled handling | Implemented |
+| Local session and location persistence with Drift/SQLite | Implemented |
+| Stable UUIDs for captured location records | Implemented |
+| Paginated local history and session details | Implemented |
+| Route map with OpenStreetMap tiles and attribution | Implemented; basemap needs Internet |
+| Batched Supabase sync, acknowledgement handling, retries, and duplicate-safe IDs | Sync pipeline implemented |
+| Sign-up/sign-in UI and authenticated account flow | **Not implemented yet** |
+| User preferences and privacy settings screen | **Not implemented yet** |
+| Background tracking while the app is closed | **Not implemented** |
+
+**Cloud sync setup note:** Supabase credentials alone do not create an authenticated user. The current authentication page is a placeholder, so end-to-end cloud sync from a signed-in user is not available until the auth flow is added. The database migration must also be applied to the Supabase project. Local tracking, saved routes, and history are available without that setup.
+
+## Architecture
+
+The app uses a feature-first modular structure. Each feature separates presentation, domain rules, and data adapters.
+
+- **Presentation:** Flutter screens and BLoCs for dashboard, tracking, history, map, and synchronization.
+- **Domain:** repository contracts, immutable entities, tracking rules, and retry policy.
+- **Data:** Drift/SQLite storage, Geolocator, connectivity monitoring, and Supabase adapters.
+- **Dependency injection:** get_it wires implementations to repository contracts.
+- **Routing:** go_router manages feature navigation.
+- **Shared foundation:** design system, app theme, logging, and centralized error mapping.
+
+Key boundaries:
+
+- Widgets render state and dispatch events; they do not query SQLite or Supabase.
+- BLoCs coordinate presentation and call repositories; they do not contain SQL or HTTP requests.
+- Accepted GPS records are persisted locally before any upload attempt.
+- A record is acknowledged locally only after the server returns an accepted or duplicate result.
+- Sync failures preserve queued data and schedule a retry with exponential backoff and jitter.
+
+## Technology
+
+- Flutter and Dart
+- BLoC (flutter_bloc)
+- Drift and SQLite for local-first persistence
+- Geolocator for device GPS
+- Supabase Flutter and PostgreSQL for optional cloud synchronization
+- connectivity_plus plus a backend health check for sync readiness
+- flutter_map and OpenStreetMap raster tiles
+- get_it, go_router, and flutter_dotenv
+
+## Run the app
+
+Requirements: Flutter SDK installed and an Android or iOS device/emulator configured.
+
+~~~sh
+cp .env.example .env
+flutter pub get
+flutter run
+~~~
+
+To demonstrate tracking without a physical GPS movement, set the development-only flag in .env:
+
+~~~dotenv
+USE_SIMULATED_LOCATION=true
+~~~
+
+The simulated location provider is intended for development and is disabled for production builds. To use device GPS, keep the flag set to false, enable Location on the device, and grant TrailSync location permission.
+
+### Optional Supabase configuration
+
+Set these values in the local .env file:
+
+~~~dotenv
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_PUBLISHABLE_KEY=sb_publishable_your_public_key
-USE_SIMULATED_LOCATION=false
 SYNC_BATCH_SIZE=100
-```
+~~~
 
-The `.env` file is bundled into the mobile app, so it is not a secure secret store. Never add a Supabase `service_role` key, database password, or other privileged credential. Supabase client configuration is not used by this foundation yet; RLS must be in place before adding client data access.
+The publishable key is client configuration, not a privileged credential. **Never put a Supabase service-role key, database password, or other server secret in the Flutter app.** Row Level Security must be enabled and configured in Supabase. See [the migration and setup guide](supabase/README.md).
 
-For a local demo without device GPS, set `USE_SIMULATED_LOCATION=true` in the ignored `.env` file. The deterministic provider is disabled in production. `SYNC_BATCH_SIZE` is bounded to 1–500 to match the server RPC limit. The app checks Supabase Auth's health endpoint before attempting uploads, then upserts the owning session and sends location records in per-session RPC batches. It requires an authenticated Supabase user and the migration in `supabase/migrations/` to be applied.
+The .env file is bundled with the app at build time; it is not a secure secret store. Use only public client values there.
 
-The dashboard reads local session totals and sync queue status. History uses cursor-paginated local session and record queries. The map renders a bounded route overview from SQLite and uses `flutter_map` with OpenStreetMap raster tiles. `OSM_TILE_URL_TEMPLATE` can point to a compatible tile endpoint. The app shows OpenStreetMap attribution and identifies itself in tile requests; it only fetches tiles for the visible map and does not prefetch tiles for offline use. GPS capture remains available offline, while the map background requires tile network access. Failed tile requests use no retry loop and fail quietly; the locally saved route remains visible. The `flutter_map` public OSM advisory is expected in debug builds and does not mean the User-Agent is missing.
+## OpenStreetMap notes
 
-SQLite remains the source of truth for captured points. A point is marked synced only after an `accepted` or `duplicate` acknowledgement; timeouts and rate limits persist a retry time with exponential backoff and jitter. Interrupted `syncing` rows return to `pending` when the database opens. Rejected rows remain in the local failed queue. Pending location rows are not deleted by synchronization.
+TrailSync shows OpenStreetMap attribution in the map. The public tile server is appropriate for interactive development and light, user-driven map viewing subject to its [usage policy](https://operations.osmfoundation.org/policies/tiles/). Public tiles are not an offline map-download service and do not include a production uptime guarantee. GPS capture and locally stored route geometry continue to work when map tiles cannot load.
 
-## Tooling
+## Development checks
 
-```sh
-flutter pub get
-dart format lib test
+~~~sh
+dart format .
 flutter analyze
 flutter test
-```
+flutter build apk --debug
+~~~
 
-`flutter_lints` supplies the baseline Flutter rules. `analysis_options.yaml` enables stricter type checks, avoids `print`, and asks the Dart formatter to normalize trailing commas and import order.
+Drift-generated database code is committed with its schema changes. If the database schema is changed, regenerate it with the project's configured build_runner command before building.
 
-The database migration, SQL Editor instructions, and validation queries are in [supabase/README.md](supabase/README.md).
+## Project layout
+
+~~~text
+lib/
+  app/          bootstrap, configuration, DI, routing, theme, database
+  core/         shared errors, logging, and design-system widgets
+  features/
+    dashboard/
+    tracking/
+    synchronization/
+    history/
+    map/
+    authentication/
+    settings/
+supabase/
+  migrations/   version-controlled PostgreSQL migrations
+test/           unit, repository, BLoC, and widget tests
+~~~
+
+## Project status
+
+TrailSync demonstrates a reliable **local capture → local review → acknowledged sync** workflow. Core device-side tracking and history are usable now. Authentication and account setup are the next product steps needed to unlock a complete multi-user cloud experience.

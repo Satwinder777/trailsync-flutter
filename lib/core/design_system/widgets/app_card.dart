@@ -21,11 +21,14 @@ class AppCard extends StatelessWidget {
     return Card(
       margin: EdgeInsets.zero,
       color: colorScheme.surface,
-      elevation: 0,
+      elevation: 1,
+      shadowColor: AppCardShadow.color,
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadii.lg),
-        side: BorderSide(color: colorScheme.outlineVariant),
+        side: BorderSide(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.8),
+        ),
       ),
       child: InkWell(
         onTap: onTap,
@@ -33,4 +36,8 @@ class AppCard extends StatelessWidget {
       ),
     );
   }
+}
+
+abstract final class AppCardShadow {
+  static const color = Color(0x080D2D23);
 }

@@ -53,19 +53,19 @@ class _DashboardPageState extends State<DashboardPage> {
               : 2;
           return ListView(
             padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
               AppSpacing.md,
-              AppSpacing.md,
-              AppSpacing.md,
+              AppSpacing.lg,
               AppSpacing.xl,
             ),
             children: [
               const _WelcomeCard(),
-              const SizedBox(height: AppSpacing.md),
+              const SizedBox(height: AppSpacing.lg),
               const _TrackingControlsCard(),
               const SizedBox(height: AppSpacing.lg),
-              Text(
-                'Your activity',
-                style: Theme.of(context).textTheme.titleLarge,
+              _SectionHeading(
+                title: 'Your trail overview',
+                subtitle: 'A quick look at your saved activity',
               ),
               const SizedBox(height: AppSpacing.md),
               GridView.count(
@@ -85,7 +85,10 @@ class _DashboardPageState extends State<DashboardPage> {
                 ],
               ),
               const SizedBox(height: AppSpacing.lg),
-              Text('Explore', style: Theme.of(context).textTheme.titleLarge),
+              _SectionHeading(
+                title: 'Explore TrailSync',
+                subtitle: 'Review routes and manage your saved data',
+              ),
               const SizedBox(height: AppSpacing.md),
               Wrap(
                 spacing: AppSpacing.sm,
@@ -148,39 +151,141 @@ class _WelcomeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => AppCard(
-    padding: const EdgeInsets.all(AppSpacing.lg),
-    child: Row(
-      children: [
-        DecoratedBox(
-          decoration: BoxDecoration(
-            color: AppColors.accent.withValues(alpha: 0.65),
-            borderRadius: BorderRadius.circular(AppRadii.lg),
-          ),
-          child: const SizedBox(
-            width: 56,
-            height: 56,
-            child: Icon(
-              Icons.route_outlined,
-              color: AppColors.forest,
-              size: 30,
+    padding: EdgeInsets.zero,
+    child: Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [AppColors.forest, AppColors.forestDark],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(AppRadii.lg),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -20,
+            top: -28,
+            child: Container(
+              width: 150,
+              height: 150,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  width: 22,
+                ),
+              ),
             ),
           ),
-        ),
-        const SizedBox(width: AppSpacing.md),
-        const Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Every trail, in sync.'),
-              SizedBox(height: AppSpacing.xs),
-              Text(
-                'Record offline and keep your routes ready wherever you go.',
-              ),
-            ],
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.explore_outlined,
+                      size: 17,
+                      color: AppColors.lime,
+                    ),
+                    const SizedBox(width: AppSpacing.xs),
+                    Text(
+                      'OFFLINE-FIRST GPS JOURNAL',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: AppColors.lime,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.1,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Text(
+                  'Every trail, in sync.',
+                  style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                    color: Colors.white,
+                    fontSize: 34,
+                    height: 1.02,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 340),
+                  child: Text(
+                    'Record your route without a signal. Your data stays on '
+                    'this device until it is safely synchronized.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.78),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                const _WorkflowPill(),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     ),
+  );
+}
+
+class _WorkflowPill extends StatelessWidget {
+  const _WorkflowPill();
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: 0.1),
+      borderRadius: BorderRadius.circular(30),
+      border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+    ),
+    child: const Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.gps_fixed, size: 16, color: AppColors.lime),
+          SizedBox(width: AppSpacing.xs),
+          Text('Capture', style: TextStyle(color: Colors.white, fontSize: 12)),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+            child: Icon(Icons.arrow_forward, size: 13, color: AppColors.lime),
+          ),
+          Text(
+            'Save locally',
+            style: TextStyle(color: Colors.white, fontSize: 12),
+          ),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+            child: Icon(Icons.arrow_forward, size: 13, color: AppColors.lime),
+          ),
+          Text('Sync', style: TextStyle(color: Colors.white, fontSize: 12)),
+        ],
+      ),
+    ),
+  );
+}
+
+class _SectionHeading extends StatelessWidget {
+  const _SectionHeading({required this.title, required this.subtitle});
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(title, style: Theme.of(context).textTheme.titleLarge),
+      const SizedBox(height: AppSpacing.xs),
+      Text(subtitle, style: Theme.of(context).textTheme.bodyMedium),
+    ],
   );
 }
 
@@ -203,26 +308,51 @@ class _TrackingControlsCard extends StatelessWidget {
           final permissionPermanent =
               state.status == TrackingStatus.permissionPermanentlyDenied;
           return AppCard(
-            padding: const EdgeInsets.all(AppSpacing.md),
+            padding: const EdgeInsets.all(AppSpacing.lg),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    Icon(
-                      state.isRecording
-                          ? Icons.radio_button_checked
-                          : Icons.gps_fixed,
-                      color: state.isRecording ? AppColors.forest : null,
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Text(
-                        _trackingStatusLabel(state.status),
-                        style: Theme.of(context).textTheme.titleMedium,
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: state.isRecording
+                            ? AppColors.accent
+                            : AppColors.canvas,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: SizedBox(
+                        width: 46,
+                        height: 46,
+                        child: Icon(
+                          state.isRecording
+                              ? Icons.radio_button_checked
+                              : Icons.gps_fixed,
+                          color: AppColors.forest,
+                        ),
                       ),
                     ),
-                    if (state.isRecording) const _ElapsedDistanceHint(),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Tracking',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _trackingStatusLabel(state.status),
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (state.isRecording)
+                      const _LiveDistanceBadge()
+                    else
+                      const _ReadyBadge(),
                   ],
                 ),
                 if (state.message != null) ...[
@@ -246,7 +376,7 @@ class _TrackingControlsCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                const SizedBox(height: AppSpacing.sm),
+                const SizedBox(height: AppSpacing.md),
                 Wrap(
                   spacing: AppSpacing.sm,
                   runSpacing: AppSpacing.sm,
@@ -286,8 +416,8 @@ class _TrackingControlsCard extends StatelessWidget {
   };
 }
 
-class _ElapsedDistanceHint extends StatelessWidget {
-  const _ElapsedDistanceHint();
+class _LiveDistanceBadge extends StatelessWidget {
+  const _LiveDistanceBadge();
 
   @override
   Widget build(BuildContext context) =>
@@ -295,9 +425,35 @@ class _ElapsedDistanceHint extends StatelessWidget {
         selector: (state) => state.session?.distanceMeters ?? 0,
         builder: (context, distance) => Text(
           '${(distance / 1000).toStringAsFixed(2)} km',
-          style: Theme.of(context).textTheme.labelLarge,
+          style: Theme.of(
+            context,
+          ).textTheme.labelLarge?.copyWith(color: AppColors.forest),
         ),
       );
+}
+
+class _ReadyBadge extends StatelessWidget {
+  const _ReadyBadge();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(
+      horizontal: AppSpacing.sm,
+      vertical: AppSpacing.xs,
+    ),
+    decoration: BoxDecoration(
+      color: AppColors.canvas,
+      borderRadius: BorderRadius.circular(30),
+    ),
+    child: Text(
+      'READY',
+      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+        color: AppColors.mutedInk,
+        letterSpacing: 0.7,
+        fontWeight: FontWeight.w700,
+      ),
+    ),
+  );
 }
 
 class _SessionCountCard extends StatelessWidget {

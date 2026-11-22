@@ -24,15 +24,48 @@ class AppMetricCard extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: AppColors.forest),
+        Row(
+          children: [
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: AppColors.accent.withValues(alpha: 0.62),
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: SizedBox(
+                width: 38,
+                height: 38,
+                child: Icon(icon, color: AppColors.forest, size: 20),
+              ),
+            ),
+            const Spacer(),
+            if (detail != null)
+              Flexible(
+                child: Text(
+                  detail!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.right,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelSmall?.copyWith(color: AppColors.mutedInk),
+                ),
+              ),
+          ],
+        ),
         const SizedBox(height: AppSpacing.md),
-        Text(value, style: Theme.of(context).textTheme.titleLarge),
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.headlineSmall,
+        ),
         const SizedBox(height: AppSpacing.xs),
-        Text(label, style: Theme.of(context).textTheme.bodyMedium),
-        if (detail != null) ...[
-          const SizedBox(height: AppSpacing.xs),
-          Text(detail!, style: Theme.of(context).textTheme.bodySmall),
-        ],
+        Text(
+          label,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
       ],
     ),
   );
