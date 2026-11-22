@@ -2,7 +2,7 @@
 
 **Record the route. Keep it safe offline. Sync it when you’re back online.**
 
-TrailSync is an offline-first GPS tracking app for walks, hikes, rides, and field work. It captures a route on the device, stores each accepted location in SQLite, and keeps the saved route available even when mobile data is unreliable. When a configured backend is reachable, the sync engine sends records in batches and only marks them synced after the server acknowledges them.
+TrailSync is an offline-first GPS tracking app for walks, hikes, rides, and field work. It captures a route on the device, stores each accepted location in SQLite, and keeps the saved route available even when mobile data is unreliable. The default assessment setup uses a built-in mock REST API; an optional Supabase adapter is also available. In either mode, the sync engine sends records in batches and only marks them synced after an acknowledgement.
 
 > **Product promise:** a lost connection should not mean a lost route.
 
@@ -42,7 +42,7 @@ The device database is the source of truth for unsynchronized work. Uploads use 
 3. Keep the app open while recording. GPS capture is currently a foreground feature.
 4. Tap **Stop** when the trip is over. The accepted points and session remain in local SQLite.
 5. Open **History** to review the session or choose **View route on map**.
-6. If the device was offline, restore a connection and open **Synchronization**. TrailSync retries pending records; it retains records that have not been acknowledged.
+6. If the device was offline, restore a connection. TrailSync automatically retries pending records; open **Synchronization** to watch the status and acknowledgements.
 
 ### Offline behavior
 
@@ -76,12 +76,24 @@ flowchart LR
 | Stable UUIDs for captured location records | Implemented |
 | Paginated local history and session details | Implemented |
 | Route map with OpenStreetMap tiles and attribution | Implemented; basemap needs Internet |
-| Batched Supabase sync, acknowledgement handling, retries, and duplicate-safe IDs | Sync pipeline implemented |
+| Batched mock REST synchronization, per-record acknowledgements, retries, and duplicate-safe IDs | Implemented for the assessment demo |
+| Optional Supabase synchronization adapter | Implemented; requires an authenticated Supabase user and migration |
 | Sign-up/sign-in UI and authenticated account flow | **Not implemented yet** |
 | User preferences and privacy settings screen | **Not implemented yet** |
 | Background tracking while the app is closed | **Not implemented** |
 
-**Cloud sync setup note:** Supabase credentials alone do not create an authenticated user. The current authentication page is a placeholder, so end-to-end cloud sync from a signed-in user is not available until the auth flow is added. The database migration must also be applied to the Supabase project. Local tracking, saved routes, and history are available without that setup.
+**Default demo sync:** the in-process mock REST API is selected by default. Dio sends JSON requests to GET /health, PUT /sessions/{id}, and POST /sessions/{id}/location-records:batch; an interceptor supplies the mock server responses. The mock stores received record IDs for the app process and returns accepted, duplicate, or rejected acknowledgements. This lets reviewers exercise batched uploads and automatic retry without a Supabase account or a separately deployed server. The mock server state resets when the app process restarts; use Supabase mode for a persistent remote backend.
+
+**Supabase mode:** set SYNC_BACKEND to supabase and configure the project URL and publishable key. Credentials alone do not create an authenticated user. The current authentication page is a placeholder, so a signed-in cloud-sync demonstration requires the auth flow to be added. The database migration must also be applied to the Supabase project.
+
+## Background tracking approach
+
+Background GPS is not enabled in the current app. To add it reliably, tracking would move from a screen-owned stream to a lifecycle-aware platform service that keeps writing accepted points to SQLite. Uploading would remain independent, so losing connectivity never stops GPS capture.
+
+- **Android:** start a location foreground service while the user is in the app, declare the location service type and required foreground-service permissions, and show an ongoing notification with a stop action. Request background location permission only if the product needs to start or continue location access outside the user-started foreground session; respect Android's background-start and location limits. See the [Android foreground service types](https://developer.android.com/develop/background-work/services/fgs/service-types) and [background location guidance](https://developer.android.com/develop/sensors-and-location/location/background).
+- **iOS:** enable the Location Updates background mode, request the location authorization level justified by the feature, and configure Core Location background updates. Persist each callback promptly, show the system location indicator, and handle delayed delivery because iOS may suspend background apps to conserve battery. See [Apple's background location guide](https://developer.apple.com/documentation/corelocation/handling-location-updates-in-the-background) and [allowsBackgroundLocationUpdates](https://developer.apple.com/documentation/corelocation/cllocationmanager/allowsbackgroundlocationupdates).
+
+On both platforms, background mode would be opt-in through a clear user action, tested with a locked screen and app lifecycle changes, and tuned for distance, accuracy, and battery use. OS delivery is not a guarantee of a fixed GPS interval.
 
 ## Architecture
 
@@ -89,7 +101,7 @@ The app uses a feature-first modular structure. Each feature separates presentat
 
 - **Presentation:** Flutter screens and BLoCs for dashboard, tracking, history, map, and synchronization.
 - **Domain:** repository contracts, immutable entities, tracking rules, and retry policy.
-- **Data:** Drift/SQLite storage, Geolocator, connectivity monitoring, and Supabase adapters.
+- **Data:** Drift/SQLite storage, Geolocator, connectivity monitoring, an in-process mock REST adapter, and an optional Supabase adapter.
 - **Dependency injection:** get_it wires implementations to repository contracts.
 - **Routing:** go_router manages feature navigation.
 - **Shared foundation:** design system, app theme, logging, and centralized error mapping.
@@ -108,7 +120,7 @@ Key boundaries:
 - BLoC (flutter_bloc)
 - Drift and SQLite for local-first persistence
 - Geolocator for device GPS
-- Supabase Flutter and PostgreSQL for optional cloud synchronization
+- Dio-backed mock REST sync for the assessment demo; Supabase Flutter and PostgreSQL as an optional remote backend
 - connectivity_plus plus a backend health check for sync readiness
 - flutter_map and OpenStreetMap raster tiles
 - get_it, go_router, and flutter_dotenv
@@ -136,12 +148,13 @@ The simulated location provider is intended for development and is disabled for 
 Set these values in the local .env file:
 
 ~~~dotenv
+SYNC_BACKEND=supabase
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_PUBLISHABLE_KEY=sb_publishable_your_public_key
 SYNC_BATCH_SIZE=100
 ~~~
 
-The publishable key is client configuration, not a privileged credential. **Never put a Supabase service-role key, database password, or other server secret in the Flutter app.** Row Level Security must be enabled and configured in Supabase. See [the migration and setup guide](supabase/README.md).
+Choose mock_rest for the ready-to-run assessment demo, or supabase to select the Supabase adapter. The publishable key is client configuration, not a privileged credential. **Never put a Supabase service-role key, database password, or other server secret in the Flutter app.** Row Level Security must be enabled and configured in Supabase. See [the migration and setup guide](supabase/README.md).
 
 The .env file is bundled with the app at build time; it is not a secure secret store. Use only public client values there.
 

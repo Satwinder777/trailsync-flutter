@@ -5,7 +5,7 @@ import '../entities/sync_record_acknowledgement.dart';
 abstract interface class SyncRemoteDataSource {
   Future<bool> isBackendReachable();
 
-  /// Ensures the session exists remotely, then invokes the batched sync RPC.
+  /// Ensures the session exists, then uploads its records in one batch.
   Future<List<SyncRecordAcknowledgement>> uploadBatch({
     required TrackingSession session,
     required List<LocationRecord> records,

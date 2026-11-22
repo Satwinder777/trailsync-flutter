@@ -3,6 +3,7 @@ class EnvironmentConfig {
     required this.appEnvironment,
     required this.supabaseUrl,
     required this.supabasePublishableKey,
+    required this.syncBackend,
     required this.useSimulatedLocation,
     required this.syncBatchSize,
     required this.mapTileUrlTemplate,
@@ -11,12 +12,15 @@ class EnvironmentConfig {
   final String appEnvironment;
   final String supabaseUrl;
   final String supabasePublishableKey;
+  final String syncBackend;
   final bool useSimulatedLocation;
   final int syncBatchSize;
   final String mapTileUrlTemplate;
 
   bool get isProduction => appEnvironment == 'production';
   bool get isSupabaseConfigured => supabaseUrl.isNotEmpty;
+  bool get usesSupabaseSync => syncBackend == 'supabase';
+  bool get usesMockRestSync => syncBackend == 'mock_rest';
 
   factory EnvironmentConfig.fromMap(Map<String, String> values) {
     final appEnvironment =
@@ -29,6 +33,13 @@ class EnvironmentConfig {
     final supabaseUrl = values['SUPABASE_URL']?.trim() ?? '';
     final supabasePublishableKey =
         values['SUPABASE_PUBLISHABLE_KEY']?.trim() ?? '';
+    final syncBackend =
+        values['SYNC_BACKEND']?.trim().toLowerCase() ?? 'mock_rest';
+    if (syncBackend != 'mock_rest' && syncBackend != 'supabase') {
+      throw const FormatException(
+        'SYNC_BACKEND must be mock_rest or supabase.',
+      );
+    }
     final useSimulatedLocation = (values['USE_SIMULATED_LOCATION'] ?? 'false')
         .trim()
         .toLowerCase();
@@ -49,6 +60,16 @@ class EnvironmentConfig {
     if (supabaseUrl.isEmpty != supabasePublishableKey.isEmpty) {
       throw const FormatException(
         'SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY must be set together.',
+      );
+    }
+    if (syncBackend == 'supabase' && supabaseUrl.isEmpty) {
+      throw const FormatException(
+        'Supabase sync requires SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY.',
+      );
+    }
+    if (appEnvironment == 'production' && syncBackend == 'mock_rest') {
+      throw const FormatException(
+        'The mock REST backend is only available outside production.',
       );
     }
 
@@ -83,6 +104,7 @@ class EnvironmentConfig {
       appEnvironment: appEnvironment,
       supabaseUrl: supabaseUrl,
       supabasePublishableKey: supabasePublishableKey,
+      syncBackend: syncBackend,
       useSimulatedLocation: useSimulatedLocation == 'true',
       syncBatchSize: syncBatchSize,
       mapTileUrlTemplate: mapTileUrlTemplate,

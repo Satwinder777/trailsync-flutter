@@ -8,6 +8,7 @@ import '../../features/dashboard/presentation/bloc/dashboard_bloc.dart';
 import '../../features/history/presentation/bloc/history_bloc.dart';
 import '../../features/map/presentation/bloc/map_bloc.dart';
 import '../../features/synchronization/data/local/drift_sync_local_store.dart';
+import '../../features/synchronization/data/remote/mock_rest_sync_remote_data_source.dart';
 import '../../features/synchronization/data/remote/supabase_sync_remote_data_source.dart';
 import '../../features/synchronization/data/repositories/offline_first_synchronization_repository.dart';
 import '../../features/synchronization/data/services/connectivity_plus_monitor.dart';
@@ -65,13 +66,23 @@ void configureDependencies({
   container.registerLazySingleton<SyncLocalStore>(
     () => DriftSyncLocalStore(container<AppDatabase>()),
   );
-  container.registerLazySingleton<SyncRemoteDataSource>(
-    () => SupabaseSyncRemoteDataSource(
-      environment: environment,
-      dio: container<Dio>(),
-      client: supabaseClient,
-    ),
-  );
+  if (environment.usesMockRestSync) {
+    container.registerLazySingleton<MockRestSyncRemoteDataSource>(
+      MockRestSyncRemoteDataSource.new,
+      dispose: (source) => source.close(),
+    );
+    container.registerLazySingleton<SyncRemoteDataSource>(
+      () => container<MockRestSyncRemoteDataSource>(),
+    );
+  } else {
+    container.registerLazySingleton<SyncRemoteDataSource>(
+      () => SupabaseSyncRemoteDataSource(
+        environment: environment,
+        dio: container<Dio>(),
+        client: supabaseClient,
+      ),
+    );
+  }
   container.registerLazySingleton<SyncConnectivityMonitor>(
     ConnectivityPlusMonitor.new,
   );

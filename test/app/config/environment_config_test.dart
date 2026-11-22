@@ -9,6 +9,9 @@ void main() {
       expect(config.appEnvironment, 'development');
       expect(config.isProduction, isFalse);
       expect(config.isSupabaseConfigured, isFalse);
+      expect(config.syncBackend, 'mock_rest');
+      expect(config.usesMockRestSync, isTrue);
+      expect(config.usesSupabaseSync, isFalse);
       expect(config.syncBatchSize, 100);
       expect(
         config.mapTileUrlTemplate,
@@ -19,18 +22,38 @@ void main() {
     test('accepts a complete public Supabase configuration', () {
       final config = EnvironmentConfig.fromMap(const {
         'APP_ENV': 'staging',
+        'SYNC_BACKEND': 'supabase',
         'SUPABASE_URL': 'https://example.supabase.co',
         'SUPABASE_PUBLISHABLE_KEY': 'sb_publishable_example',
       });
 
       expect(config.appEnvironment, 'staging');
       expect(config.isSupabaseConfigured, isTrue);
+      expect(config.usesSupabaseSync, isTrue);
     });
 
     test('rejects partial Supabase configuration', () {
       expect(
         () => EnvironmentConfig.fromMap(const {
           'SUPABASE_URL': 'https://example.supabase.co',
+        }),
+        throwsFormatException,
+      );
+    });
+
+    test('validates synchronization backend configuration', () {
+      expect(
+        () => EnvironmentConfig.fromMap(const {'SYNC_BACKEND': 'unknown'}),
+        throwsFormatException,
+      );
+      expect(
+        () => EnvironmentConfig.fromMap(const {'SYNC_BACKEND': 'supabase'}),
+        throwsFormatException,
+      );
+      expect(
+        () => EnvironmentConfig.fromMap(const {
+          'APP_ENV': 'production',
+          'SYNC_BACKEND': 'mock_rest',
         }),
         throwsFormatException,
       );

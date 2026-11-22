@@ -20,7 +20,7 @@ Future<void> bootstrap({required AppLogger logger}) async {
   final environment = EnvironmentConfig.fromMap(dotenv.env);
 
   SupabaseClient? supabaseClient;
-  if (environment.isSupabaseConfigured) {
+  if (environment.usesSupabaseSync && environment.isSupabaseConfigured) {
     try {
       await Supabase.initialize(
         url: environment.supabaseUrl,
