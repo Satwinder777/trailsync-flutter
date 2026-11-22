@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:http/http.dart';
+import 'package:http/retry.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../core/design_system/widgets/app_card.dart';
 import '../../../../core/design_system/widgets/app_page_scaffold.dart';
+import '../../../../features/synchronization/presentation/bloc/sync_bloc.dart';
+import '../../../../features/synchronization/presentation/bloc/sync_state.dart';
 import '../../../../features/tracking/domain/entities/tracking_route_point.dart';
 import '../../../../features/tracking/presentation/bloc/tracking_bloc.dart';
 import '../../../../features/tracking/presentation/bloc/tracking_state.dart';
@@ -48,6 +52,7 @@ class _MapPageState extends State<MapPage> {
         children: [
           const _SessionPicker(),
           const _LocationStatusBanner(),
+          const _NetworkAvailabilityNotice(),
           Expanded(
             child: BlocBuilder<MapBloc, MapState>(
               buildWhen: (previous, current) =>
@@ -222,6 +227,41 @@ class _LocationStatusBanner extends StatelessWidget {
       );
 }
 
+class _NetworkAvailabilityNotice extends StatelessWidget {
+  const _NetworkAvailabilityNotice();
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) => BlocSelector<SyncBloc, SyncState, bool?>(
+    selector: (state) => state.hasNetwork,
+    builder: (context, hasNetwork) {
+      if (hasNetwork != false) return const SizedBox.shrink();
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
+        child: AppCard(
+          padding: EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.wifi_off_outlined),
+              SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  'No network connection. GPS and saved routes stay on this '
+                  'device; new map tiles need internet.',
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
 class _MapCanvas extends StatefulWidget {
   const _MapCanvas({
     required this.tileUrlTemplate,
@@ -243,6 +283,12 @@ class _MapCanvas extends StatefulWidget {
 
 class _MapCanvasState extends State<_MapCanvas> {
   late final MapController _controller = MapController();
+  late final RetryClient _tileHttpClient = RetryClient(Client(), retries: 0);
+  late final NetworkTileProvider _tileProvider = NetworkTileProvider(
+    httpClient: _tileHttpClient,
+    silenceExceptions: true,
+    attemptDecodeOfHttpErrorResponses: false,
+  );
   bool _mapReady = false;
 
   LatLng get _center => widget.routePoints.isNotEmpty
@@ -268,6 +314,12 @@ class _MapCanvasState extends State<_MapCanvas> {
         }
       });
     }
+  }
+
+  @override
+  void dispose() {
+    _tileHttpClient.close();
+    super.dispose();
   }
 
   @override
@@ -317,6 +369,7 @@ class _MapCanvasState extends State<_MapCanvas> {
             TileLayer(
               urlTemplate: widget.tileUrlTemplate,
               userAgentPackageName: 'com.satwinder.trailsync',
+              tileProvider: _tileProvider,
               maxNativeZoom: 19,
             ),
             if (route.length > 1)

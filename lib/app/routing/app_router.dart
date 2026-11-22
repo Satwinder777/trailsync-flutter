@@ -91,6 +91,7 @@ abstract final class AppRouter {
             providers: [
               BlocProvider.value(value: trackingBloc),
               BlocProvider.value(value: mapBloc),
+              BlocProvider.value(value: syncBloc),
             ],
             child: MapPage(
               tileUrlTemplate: mapTileUrlTemplate,
